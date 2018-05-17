@@ -1,0 +1,143 @@
+#!/usr/bin/expect
+
+# 1. autoscp.exp 把需要执行的脚本拷贝到远端的机器上。##
+# 2. autossh.exp 在远端机器上执行命令或拷贝过去的脚本。##
+
+# 设置语言环境为英语环境，以免因当前语言环境为非英语环境时，关键字无法匹配，导致脚本执行结果非预期。##
+set env(LC_ALL) en_US.UTF-8
+
+set login_mode [lindex $argv 0]
+
+# 密码登录模式。##
+if { $login_mode == "password_mode" } {
+    if { $argc == 6 } {
+        set username    [lindex $argv 1]
+        set password    [lindex $argv 2]
+        set remote_ip   [lindex $argv 3]
+        set local_file  [lindex $argv 4]
+        set remote_file [lindex $argv 5]
+    } else {
+        send_error "usage: ./autoscp.exp password_mode <username> <password>                <remote_ip> <local_file> <remote_file>\n"
+        send_error "usage: ./autoscp.exp key_mode      <username> <key_path>                <remote_ip> <local_file> <remote_file>\n"
+        send_error "usage: ./autoscp.exp key_mode      <username> <key_path> <key_password> <remote_ip> <local_file> <remote_file>\n"
+        exit 1
+    }
+
+    # 单位为秒，设置为0表示立即超时，-1则表示永不超时。默认为10s。##
+    set timeout -1
+
+    spawn scp -oUserKnownHostsFile=/dev/null -oStrictHostKeyChecking=no -r $local_file $username@$remote_ip:$remote_file
+
+    set already_input_password "false"
+    expect {
+        "Name or service not known" {send_error "Host\[ $remote_ip \] could not be reached. Please check the network. Try with cmd \[ ssh $username@$remote_ip \].\n"; exit 255} # 网络不通。##
+        "No route to host"          {send_error "Host\[ $remote_ip \] could not be reached. Please check the network. Try with cmd \[ ssh $username@$remote_ip \].\n"; exit 255} # 网络不通。##
+        "Connection timed out"      {send_error "Host\[ $remote_ip \] could not be reached. Please check the network. Try with cmd \[ ssh $username@$remote_ip \].\n"; exit 255} # 网络不通。##
+        "Connection refused"        {send_error "Host\[ $remote_ip \] could not be reached. Please check the network. Try with cmd \[ ssh $username@$remote_ip \].\n"; exit 255} # 网络不通。##
+        "Permission denied"         {send_error "Username\[ $username \] or password\[ ****** \] is not correct. Try with cmd \[ ssh $username@$remote_ip \].\n"; exit 255}      # 密码错误。##
+        "authentication failures"   {send_error "Username\[ $username \] or password\[ ****** \] is not correct. Try with cmd \[ ssh $username@$remote_ip \].\n"; exit 255}      # 密码错误。##
+        "(yes/no)?"                 {send "yes\r"; exp_continue}                                                                                                                 # 添加信任。##
+        "*assword:"                 {
+                                        if { $already_input_password == "false" } {
+                                            # 未输入过密码，因此这是第一次输入密码。##
+                                            send "$password\r"
+                                            set already_input_password "true"
+                                            exp_continue
+                                        } else {
+                                            # 输入过密码，则证明第一次输入密码错误的，直接报错退出。##
+                                            send_error "\nUsername\[ $username \] or password\[ ****** \] is not correct. Try with cmd \[ ssh $username@$remote_ip \].\n"
+                                            exit 255
+                                        }
+                                    }
+        eof                                                                                                                                                                      # 进程结束发出eof，这个要匹配。##
+    }
+
+    # 获得scp返回值。如果scp连接失败，返回值为scp命令本身的返回值255。如果scp连接成功，返回值为执行命令的返回值。特别地，如果执行命令的返回值为255，那我们是区分不出是scp出错还是执行命令出错的。不过一般执行命令的返回值都不为255，另外，我们也不应过度区分是哪个引起的错误，调用此脚本的脚本只要知道出错就好了。##
+    catch wait process_info
+    set exit_code [lindex $process_info 3]
+    if { $exit_code == 255 } {
+        send_error "Connect with ssh failed. Try with cmd \[ ssh $username@$remote_ip \].\n"
+    }
+    exit $exit_code
+
+# 公钥与私钥对登录模式。##
+} elseif { $login_mode == "key_mode" } {
+    if { $argc == 6 } {
+        set username     [lindex $argv 1]
+        set key_path     [lindex $argv 2]
+        set remote_ip    [lindex $argv 3]
+        set local_file   [lindex $argv 4]
+        set remote_file  [lindex $argv 5]
+    } elseif { $argc == 7 } {
+        set username     [lindex $argv 1]
+        set key_path     [lindex $argv 2]
+        set key_password [lindex $argv 3]
+        set remote_ip    [lindex $argv 4]
+        set local_file   [lindex $argv 5]
+        set remote_file  [lindex $argv 6]
+    } else {
+        send_error "usage: ./autoscp.exp password_mode <username> <password>                <remote_ip> <local_file> <remote_file>\n"
+        send_error "usage: ./autoscp.exp key_mode      <username> <key_path>                <remote_ip> <local_file> <remote_file>\n"
+        send_error "usage: ./autoscp.exp key_mode      <username> <key_path> <key_password> <remote_ip> <local_file> <remote_file>\n"
+        exit 1
+    }
+
+    # 检测秘钥文件是否存在。##
+    if { [file isfile $key_path] != 1 } {
+        send_user "Key file \[ $key_path \] does not exist.\n"
+        exit 1
+    }
+
+    # 单位为秒，设置为0表示立即超时，-1则表示永不超时。默认为10s。##
+    set timeout -1
+
+    spawn scp -oUserKnownHostsFile=/dev/null -oStrictHostKeyChecking=no -i $key_path -r $local_file $username@$remote_ip:$remote_file
+
+    set already_input_key_password "false"
+    expect {
+        "Name or service not known" {send_error "Host\[ $remote_ip \] could not be reached. Please check the network. Try with cmd \[ ssh -i $key_path $username@$remote_ip \].\n"; exit 255}                          # 网络不通。##
+        "No route to host"          {send_error "Host\[ $remote_ip \] could not be reached. Please check the network. Try with cmd \[ ssh -i $key_path $username@$remote_ip \].\n"; exit 255}                          # 网络不通。##
+        "Connection timed out"      {send_error "Host\[ $remote_ip \] could not be reached. Please check the network. Try with cmd \[ ssh -i $key_path $username@$remote_ip \].\n"; exit 255}                          # 网络不通。##
+        "Connection refused"        {send_error "Host\[ $remote_ip \] could not be reached. Please check the network. Try with cmd \[ ssh -i $key_path $username@$remote_ip \].\n"; exit 255}                          # 网络不通。##
+        "(yes/no)?"                 {send "yes\r"; exp_continue}                                                                                                                                                       # 添加信任。##
+        "*assword:"                 {send_error "\nTrust file\[ ~/.ssh/authorized_keys \] is not set correctly on remote host\[ $remote_ip \]. Try with cmd \[ ssh -i $key_path $username@$remote_ip \].\n"; exit 255} # 远程主机的信任配置信息不正确。#                                                                  # ##
+        "Enter passphrase for key"  {
+                                        # 判断秘钥密码变量是否被定义。##
+                                        if { [info exists key_password] == 1 } {
+                                            if { $already_input_key_password == "false" } {
+                                                # 未输入过密码，因此这是第一次输入密码。##
+                                                send "$key_password\r"
+                                                set already_input_key_password "true"
+                                                exp_continue
+                                            } else {
+                                                # 输入过密码，则证明第一次输入密码错误的，直接报错退出。##
+                                                send_error "\nPassword\[ ****** \] is not correct for the key file \[ $key_path \]. Try with cmd \[ ssh -i $key_path $username@$remote_ip \].\n"
+                                                exit 255
+                                            }
+                                        } else {
+                                            # 秘钥密码变量未被定义，提示用户需要使用秘钥密码。##
+                                            send_error "\nKey file\[ $key_path \] need a password. Try with cmd \[ ssh -i $key_path $username@$remote_ip \].\n\n"
+                                            send_error "usage: ./autoscp.exp password_mode <username> <password>                <remote_ip> <local_file> <remote_file>\n"
+                                            send_error "usage: ./autoscp.exp key_mode      <username> <key_path>                <remote_ip> <local_file> <remote_file>\n"
+                                            send_error "usage: ./autoscp.exp key_mode      <username> <key_path> <key_password> <remote_ip> <local_file> <remote_file>\n"
+                                            exit 1
+                                        }
+                                    }
+        eof                                                                                                                                                                                                            # 进程结束发出eof，这个要匹配。##
+    }
+
+    # 获得scp返回值。如果scp连接失败，返回值为scp命令本身的返回值255。如果scp连接成功，返回值为执行命令的返回值。特别地，如果执行命令的返回值为255，那我们是区分不出是scp出错还是执行命令出错的。不过一般执行命令的返回值都不为255，另外，我们也不应过度区分是哪个引起的错误，调用此脚本的脚本只要知道出错就好了。##
+    catch wait process_info
+    set exit_code [lindex $process_info 3]
+    if { $exit_code == 255 } {
+        send_error "Connect with ssh failed. Try with cmd \[ ssh -i $key_path $username@$remote_ip \].\n"
+    }
+    exit $exit_code
+
+} else {
+    send_error "usage: ./autoscp.exp password_mode <username> <password>                <remote_ip> <local_file> <remote_file>\n"
+    send_error "usage: ./autoscp.exp key_mode      <username> <key_path>                <remote_ip> <local_file> <remote_file>\n"
+    send_error "usage: ./autoscp.exp key_mode      <username> <key_path> <key_password> <remote_ip> <local_file> <remote_file>\n"
+    exit 1
+}
+

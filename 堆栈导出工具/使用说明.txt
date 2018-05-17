@@ -1,0 +1,7 @@
+1. 以I2000用户将dumpstack.tar.gz上传到$I2000_HOME/I2000/run目录下
+2. tar xzvf dumpstack.tar.gz
+3. cd stack
+4. 
+   ./run.sh   ---抓一次堆栈，堆栈输出在output/result_1.txt中
+   ./run.sh 3 5   ---抓三次堆栈，每次间隔5秒，每次堆栈结果输出在output/result_***.txt中
+   堆栈输出文件中含有每个堆栈的具体信息以及CPU占用率情况

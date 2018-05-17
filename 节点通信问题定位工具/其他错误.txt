@@ -1,0 +1,123 @@
+echo "Other causes of errors: [log][ERROR][cause][solution]"
+echo "1. [/opt/huawei/I2000/run/log/omu/transport.log]
+         [DMU1 is already exist.]
+         [Table OMUUSER.CIE_SUPPORT_NODEINFO in Oracle exist dirty data.]
+         [Delete dirty data and restart I2000.Please use \"delete from OMUUSER.CIE_SUPPORT_NODEINFO where name='DMU1'\"]"
+
+echo "2. [...]
+         [...]
+         [...]
+         [...]"
+
+
+问题解决：
+============================================================================================================
+（1）在节点表没有mac记录时，通过搜索日志，看是什么时候删除的，确认是设备或虚拟化的问题的话，交由他们处理。（临时的规避方法：插库，重启DMU）
+appi2kdap11101:/opt/huawei/cie/dmu/log/debug # grep -inr --color "ServerBlade=01_21002ac" dNodemgr.log dTransport.log
+
+（2）mac地址重复规避命令：删除时可根据dn查看在界面上不存在的记录，删除对应bmu
+psql -d dmudb -U dmuuser -p 1525 -c "delete cie_support_nodeinfo where physicalid like '%04-f9-38-99-0f-ce%'";
+psql -d dmudb -U dmuuser -p 1525 -c "delete cie_support_nodeinfo where name='BMU31'";
+psql -d dmudb -U dmuuser -p 1525 -c "select * from cie_support_nodeinfo";
+
+
+待解决：
+============================================================================================================    
+（1）bmu中配置的mq密码与mq服务器不一致: 搜索日志，在5分钟内匹配 User name [.*] or password is invalid.
+2015-12-18 17:17:27,450 | ERROR | SendRegisterRequest | Start mq GEN_MQMSG_CONNECTION connection ActiveMQConnection {id=ID:linux-56284-1450429160852-1:883,clientId=ID:linux-56284-1450429160852-0:883,started=false} fail,cause by User name [cieAdmin] or password is invalid.. | com.huawei.cie.support.mq.service.impl.MQAdapter.doReconnectMQ()203 
+
+（2）keystore的密码与配置文件不相符: 搜索日志，在5分钟内匹配 java.io.IOException: Keystore was tampered with, or password was incorrect.
+2015-12-19 00:38:06,438 | ERROR | DeamonRegMQListener | Start mq DMU_PM_MSG_CONNECTION  connection null fail,cause by Could not create Transport. Reason: java.io.IOException: Keystore was tampered with, or password was incorrect. | com.huawei.cie.support.mq.service.impl.MQAdapter.doReconnectMQ()215
+
+
+不处理：
+============================================================================================================   
+黄进飞双机环境，mq.cfg中配置浮动ip和小网ip，使用小网通信
+脚本查看到是双机，获取的浮动ip不准确，有两个。
+
+规避方式：注释掉走浮动ip的逻辑，直接走单机的检测逻辑。
+
+
+已处理：
+============================================================================================================
+（1）老版本的CIE这个url格式和R3C20的有差异--已处理
+老版本：
+mq.server.broker.url = failover:(ssl://127.0.0.1:61616?wireFormat.maxInactivityDuration=0&soTimeout=5000&connectionTimeout=5000&trace=true&soLinger=-1&closeAsync=true)?randomize=false&timeout=5000&initialReconnectDelay=1000&maxReconnectDelay=1000&useExponentialBackOff=false
+新版本：
+mq.server.broker.url = failover:(ssl://10.71.171.92:61616,ssl://127.0.0.1:61616)?nested.wireFormat.maxInactivityDuration=5000&nested.wireFormat.maxInactivityDurationInitalDelay=1000&nested.soTimeout=5000&nested.connectionTimeout=5000&nested.soLinger=-1&nested.closeAsync=true&randomize=false&timeout=5000&initialReconnectDelay=1000&maxReconnectDelay=1000&useExponentialBackOff=false
+
+修改如下：
+omu_mq_ip=$(cat $OMU_HOME/run/etc/omu/omu.properties | grep "mq.server.broker.url" | grep -o "(.*)" | sed "s#(##g" | sed "s#)##g" | sed "s#ssl://##g" | sed "s#:61616##g")
+改为：
+omu_mq_ip=$(cat $OMU_HOME/run/etc/omu/omu.properties | grep "mq.server.broker.url" | grep -v "#" | grep -o -E "((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])")
+
+
+（2）加固的环境登陆有问题，但脚本为提示登陆有问题：
+李鹏(l00223564) 2015-12-24 14:41
+环境信息:
+10.158.215.57--I2000 root/Huawei@123
+10.158.215.58--bmu   root/Huawei@123
+
+sles-sp3:/home/node_tool # ssh root@10.158.215.58
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@    WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!     @
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+IT IS POSSIBLE THAT SOMEONE IS DOING SOMETHING NASTY!
+Someone could be eavesdropping on you right now (man-in-the-middle attack)!
+It is also possible that a host key has just been changed.
+The fingerprint for the RSA key sent by the remote host is
+8a:3b:0a:07:62:42:35:4d:24:d9:1f:4c:6f:3a:1e:7a [MD5].
+Please contact your system administrator.
+Add correct host key in /root/.ssh/known_hosts to get rid of this message.
+Offending ECDSA key in /root/.ssh/known_hosts:4
+RSA host key for 10.158.215.58 has changed and you have requested strict checking.
+Host key verification failed.
+sles-sp3:/home/node_tool # echo $?
+255
+sles-sp3:/home/node_tool # ssh bmuuser@10.158.215.58
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@    WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!     @
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+IT IS POSSIBLE THAT SOMEONE IS DOING SOMETHING NASTY!
+Someone could be eavesdropping on you right now (man-in-the-middle attack)!
+It is also possible that a host key has just been changed.
+The fingerprint for the RSA key sent by the remote host is
+8a:3b:0a:07:62:42:35:4d:24:d9:1f:4c:6f:3a:1e:7a [MD5].
+Please contact your system administrator.
+Add correct host key in /root/.ssh/known_hosts to get rid of this message.
+Offending ECDSA key in /root/.ssh/known_hosts:4
+RSA host key for 10.158.215.58 has changed and you have requested strict checking.
+Host key verification failed.
+sles-sp3:/home/node_tool # echo $?
+255
+
+修改如下：
+# 获得ssh返回值。如果ssh连接失败，返回值为ssh命令本身的返回值255。如果ssh连接成功，返回值为执行命令的返回值。特别地，如果执行命令的返回值为255，那我们是区分不出是ssh出错还是执行命令出错的。不过一般执行命令的返回值都不为255，另外，我们也不应过度区分是哪个引起的错误，调用此脚本的脚本只要知道出错就好了。##
+catch wait process_info
+set exit_code [lindex $process_info 3]
+if { $exit_code == 255 } {
+    send_error "Connect with ssh failed. Try with cmd \[ ssh $username@$remote_ip \].\n"
+}
+exit $exit_code
+
+
+（3）环境出现定制的提示符，需要想出终极方案过滤多余字符。--已处理
+I2000_R3C20_DailyEnv1:/opt/huawei/cie/dmu/tools/node_tool # ssh 10.64.121.224
+Password: 
+Last login: Mon Feb  1 19:34:53 2016 from 10.75.156.88
+Huawei's internal systems must only be used for conducting Huawei's business or for purposes authorized by Huawei management.Use is subject to audit at any time by Huawei management.
+SZX1000012363:~ # 
+
+修改如下：
+# 添加"====autossh.exp===="是为了把ssh的输出和命令的输出分开。##
+spawn ssh $username@$remote_ip "echo ====autossh.exp==== && $command"
+
+
+（4）环境建立了互信，无须密码直接登录。--已处理
+i2k157:/opt/huawei/cie/dmu/tools/node_tool # ssh 128.128.115.101 
+Last login: Fri Feb  5 15:40:53 2016 from 128.128.136.12
+rh2288:~ #
+
+修改如下：
+同问题（3），本质上都是区分不了ssh输出和业务输出导致的问题。
+

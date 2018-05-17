@@ -1,0 +1,26 @@
+BMU为10.71.170.123
+
+INSERT INTO "dmuuser"."cie_support_nodeinfo" ("name", "deviceid", "listenmac", "physicalid", "type") VALUES ('BMU30', 'PcServer=01_210025c', '', '00-50-56-85-53-de,00-50-56-85-c2-e1,', 'BMU');
+INSERT INTO "dmuuser"."cie_support_nodeinfo" ("name", "deviceid", "listenmac", "physicalid", "type") VALUES ('BMU31', 'PcServer=01_210025c', '', '00-50-56-85-53-de,00-50-56-85-c2-e1,', 'BMU');
+INSERT INTO "dmuuser"."cie_support_nodeinfo" ("name", "deviceid", "listenmac", "physicalid", "type") VALUES ('BMU32', 'PcServer=01_210025c', '', '00-50-56-85-53-de,00-50-56-85-c2-e1,', 'BMU');
+
+INSERT INTO "dmuuser"."t_dmu_instance_nic" ("id", "gateway", "instanceid", "ip", "mac", "nicflux", "nicid", "portgroupname") VALUES (12, '12', 'instance=222', '123.01.12', '00:50:56:85:53:de', 1, '22', '22');
+INSERT INTO "dmuuser"."t_dmu_instance_nic" ("id", "gateway", "instanceid", "ip", "mac", "mask", "nicflux", "nicid", "portgroupname") VALUES (13, '12', 'instance=223', '10.71.170.123', '23asdf', null, 1, '22', '22');
+INSERT INTO "dmuuser"."t_dmu_instance_nic" ("id", "gateway", "instanceid", "ip", "mac", "mask", "nicflux", "nicid", "portgroupname") VALUES (14, '12', 'instance=223', '10.71.170.12', '23asdf', null, 1, '22', '22');
+
+INSERT INTO "dmuuser"."tbl_resource" ("resourceid", "devicetype", "dn", "ipaddress", "macaddress", "name", "parentdn", "parentid", "resourcetype", "roclass", "status", "version") VALUES (114, 'inf.host.blade.atae', 'ServerBlade=01_2100262', '', '00 b1 00-18-82-a9-64-d2,01 b2 00-50-56-85-c2-e1', 'Atae_board06', 'Shelf=01_210025a', 2, 'com.huawei.oms.eam.mo.ServerBlade', 'com.huawei.cie.device.model.compute.ServerBladeVo', 0, 'V300R001');
+INSERT INTO "dmuuser"."tbl_resource" ("resourceid", "devicetype", "dn", "ipaddress", "macaddress", "name", "parentdn", "parentid", "resourcetype", "roclass", "status", "version") VALUES (115, 'inf.host.blade.atae', 'ServerBlade=01_2100262', '10.71.170.123', '00 b1 00-18-82-a9-64-d2,01 b2 00-50-56-85-c2-11', 'Atae_board06', 'Shelf=01_210025a', 2, 'com.huawei.oms.eam.mo.ServerBlade', 'com.huawei.cie.device.model.compute.ServerBladeVo', 0, 'V300R001');
+INSERT INTO "dmuuser"."tbl_resource" ("resourceid", "devicetype", "dn", "ipaddress", "macaddress", "name", "parentdn", "parentid", "resourcetype", "roclass", "status", "version") VALUES (116, 'inf.host.blade.atae', 'ServerBlade=01_2100262', '10.71.170.12', '00 b1 00-18-82-a9-64-d2,01 b2 00-50-56-85-c2-11', 'Atae_board06', 'Shelf=01_210025a', 2, 'com.huawei.oms.eam.mo.ServerBlade', 'com.huawei.cie.device.model.compute.ServerBladeVo', 0, 'V300R001');
+
+DELETE FROM "dmuuser"."cie_support_nodeinfo" WHERE "name" = 'BMU30';
+DELETE FROM "dmuuser"."cie_support_nodeinfo" WHERE "name" = 'BMU31';
+DELETE FROM "dmuuser"."cie_support_nodeinfo" WHERE "name" = 'BMU32';
+
+
+DELETE FROM "dmuuser"."t_dmu_instance_nic" WHERE "id" = 12;
+DELETE FROM "dmuuser"."t_dmu_instance_nic" WHERE "id" = 13;
+DELETE FROM "dmuuser"."t_dmu_instance_nic" WHERE "id" = 14;
+
+DELETE FROM "dmuuser"."tbl_resource" WHERE "resourceid" = 114;
+DELETE FROM "dmuuser"."tbl_resource" WHERE "resourceid" = 115;
+DELETE FROM "dmuuser"."tbl_resource" WHERE "resourceid" = 116;

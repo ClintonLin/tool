@@ -1,0 +1,64 @@
+Bash Script Beautifier (Ruby)
+官网：
+    http://arachnoid.com/linux/beautify_bash/
+
+简介：
+    由于bash脚本格式比较灵活，无强制要求，带来了书写便利的优点的同时，也引入了格式无法统一的问题。
+    该工具使用ruby编写，实现格式化指定的bash脚本，结合命令行可以实现批量格式化目录下所有脚本的功能。
+
+使用说明：
+(1) 格式化指定文件，将待格式化的监本以参数的方式传给工具，工具先生成脚本名加~的备份文件，在将结果写回源文件。
+ruby beautify_bash.rb mybash1.sh mybase2.sh mybase3.sh
+
+(2) 格式化指定目录下的所有脚本文件。
+x00228543@szxy5x002285431 MINGW64 /d/TeamResource/CODE_I2000_Main/PublishVersion_Build/SRC_Code/UniAgent-project/UNIAGENT_INSTALL3
+$ find . -type f -iname "*.sh" -exec bash -c "ruby beautify_bash.rb {}" \;
+
+x00228543@szxy5x002285431 MINGW64 /d/TeamResource/CODE_I2000_Main/PublishVersion_Build/SRC_Code/UniAgent-project/UNIAGENT_INSTALL3
+$ find . -type f -iname "*.sh~" -exec bash -c "rm {}" \;
+
+
+================================================================================================
+环境要求：
+（1）windows
+    （a）安装Git，在windows上使用linux命令。
+        提供命令行，方便执行Go命令。比cmd更加友好。
+        1.下载Git，https://git-scm.com/downloads
+        2.默认安装Git，一路next。
+        3.验证是否安装成功，右键桌面-->Git Base Here，能打开Git Base
+
+    （b）安装ruby，注意使用1.8.7版本的。
+        http://www.ruby-lang.org/en/downloads/
+        http://rubyinstaller.org/downloads/archives
+
+（2）linux
+由于该工具发表的比较早，只能在ruby 1.8.7 运行良好。
+cie47:/build/SVN_CODE/I2000_V5R3C50_CODE/SRC_Code # ruby -v
+ruby 1.8.7 (2008-08-11 patchlevel 72) [x86_64-linux]
+cie47:/build/SVN_CODE/I2000_V5R3C50_CODE/SRC_Code #
+
+
+================================================================================================
+注意：有些文件语句不能被格式化，如下所示，所以格式化后需要与源文件比对，确保不会出现问题。
+
+# AIX not support sed -i and the command /a (add text to next line) on aix is particular.##
+# Function sed_i_add_to_next_line will add text to next line and save file.##
+# Tested on suse, redhat, aix.##
+function sed_i_add_to_next_line()
+{
+    [ $# -ne 3 ] && die "Args illegal. Usage: sed_i_add_to_next_line <sed_para_pattern> <sed_para_to_add> <file_path>"
+    local sed_para_pattern=$1
+    local sed_para_to_add=$2
+    local file_path=$3
+
+    [ ! -f "$file_path" ] && echo "File [ $file_path ] is missing." && exit 1
+
+# Note: don't modify the format, beacuse the command /a (add text to next line) on aix is particular.##
+sed "/$sed_para_pattern/"'a\
+'"$sed_para_to_add" $file_path >$file_path.tmp
+[ $? -ne 0 ] && die "Exec [ sed '$sed_para' $file_path ] failed."
+
+    cat $file_path.tmp >$file_path
+    rm $file_path.tmp
+}
+

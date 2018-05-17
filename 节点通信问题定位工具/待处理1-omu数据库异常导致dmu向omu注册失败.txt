@@ -1,0 +1,94 @@
+问题描述：
+界面报错omu和dmu通信失败。
+
+问题原因：
+排查了omu和dmu的启动状态，bundle状态、61616的监听状态都是正常的。这个平时没碰到过，无从定位。
+
+后来查看所有日志，在$OMU_HOME/run/log/transport.log中发现dmu的注册请求，在注册流程中发现写入数据库错误，导致注册流程失败，dmu的节点状态一直处于未注册，体现为omu和dmu通信失败。
+
+2015-08-02 02:28:08,367 INFO  [CIEMQMsgRcv-7-thread-6][com.huawei.cie.nodemgr.server.service.impl.NodeRegisterServerImpl$1 107] Recieve a node register request type : com.huawei.cie.support.mq.api.message.ObjectMQMsg [ content={NodeName=DMU1, NodeMgrEventExtraDataKey={timeZone=Asia/Shanghai, NodeDesc=DMU1}, macAddrs=28-6e-d4-99-f9-fa,28-6e-d4-99-f9-fb,28-6e-d4-99-f9-f8,0a-2b-92-19-17-86,28-6e-d4-99-f9-f9,28-6e-d4-99-f9-f7,, mac=28-6e-d4-99-f9-fa} msgProps=com.huawei.cie.support.mq.api.message.MsgProperties [ contentType=Bson contentEncoding=UTF-8 contentLength=0 type=null classTypeId=Hashtable correlationId=NodeRegSeletor replyTo=null timestamp=null headers={_UserMap_={NodeMgrAction=RegisterRequest}} userMap={NodeMgrAction=RegisterRequest}]]
+2015-08-02 02:28:08,367 INFO  [CIEMQMsgRcv-7-thread-6][com.huawei.cie.nodemgr.server.service.impl.NodeRegisterServerImpl 259] Init respone mq topic 28-6e-d4-99-f9-fa.
+2015-08-02 02:28:08,367 INFO  [CIEMQMsgRcv-7-thread-6][com.huawei.cie.nodemgr.server.service.impl.NodeRegisterServerImpl$2 136] Filter register request : {NodeName=DMU1, NodeMgrEventExtraDataKey={timeZone=Asia/Shanghai, NodeDesc=DMU1}, macAddrs=28-6e-d4-99-f9-fa,28-6e-d4-99-f9-fb,28-6e-d4-99-f9-f8,0a-2b-92-19-17-86,28-6e-d4-99-f9-f9,28-6e-d4-99-f9-f7,, mac=28-6e-d4-99-f9-fa}
+2015-08-02 02:28:08,373 ERROR [CIEMQMsgRcv-7-thread-6][com.huawei.cie.nodemgr.server.service.impl.NodeRegisterServerImpl$1 115] Proccess a node register request failed.
+org.springframework.jdbc.UncategorizedSQLException: Hibernate operation: Cannot open connection; uncategorized SQLException for SQL [???]; SQL state [null]; error code [0]; Cannot create PoolableConnectionFactory (The Network Adapter could not establish the connection); nested exception is org.apache.commons.dbcp.SQLNestedException: Cannot create PoolableConnectionFactory (The Network Adapter could not establish the connection)
+	at org.springframework.jdbc.support.AbstractFallbackSQLExceptionTranslator.translate(AbstractFallbackSQLExceptionTranslator.java:83)
+	at org.springframework.orm.hibernate3.HibernateAccessor.convertJdbcAccessException(HibernateAccessor.java:424)
+	at org.springframework.orm.hibernate3.HibernateAccessor.convertHibernateAccessException(HibernateAccessor.java:410)
+	at org.springframework.orm.hibernate3.HibernateTemplate.doExecute(HibernateTemplate.java:411)
+	at org.springframework.orm.hibernate3.HibernateTemplate.executeWithNativeSession(HibernateTemplate.java:374)
+	at com.huawei.cie.orm.hibernate.support.BaseDaoHibernateImpl.findAllByPager(BaseDaoHibernateImpl.java:121)
+	at com.huawei.cie.nodemgr.server.service.impl.NodeInfoServiceImpl.findNodeInfoByMacAddrs(NodeInfoServiceImpl.java:282)
+	at sun.reflect.GeneratedMethodAccessor1232.invoke(Unknown Source)
+	at sun.reflect.DelegatingMethodAccessorImpl.invoke(Unknown Source)
+	at java.lang.reflect.Method.invoke(Unknown Source)
+	at org.springframework.aop.support.AopUtils.invokeJoinpointUsingReflection(AopUtils.java:318)
+	at org.springframework.aop.framework.JdkDynamicAopProxy.invoke(JdkDynamicAopProxy.java:196)
+	at com.sun.proxy.$Proxy1263.findNodeInfoByMacAddrs(Unknown Source)
+	at com.huawei.cie.nodemgr.server.service.impl.NodeRegisterServerImpl$2.accept(NodeRegisterServerImpl.java:137)
+	at com.huawei.cie.nodemgr.server.service.impl.RegisterReqMgrImpl.accept(RegisterReqMgrImpl.java:30)
+	at com.huawei.cie.nodemgr.server.service.impl.NodeRegisterServerImpl.proccessRegRequset(NodeRegisterServerImpl.java:265)
+	at com.huawei.cie.nodemgr.server.service.impl.NodeRegisterServerImpl.access$100(NodeRegisterServerImpl.java:59)
+	at com.huawei.cie.nodemgr.server.service.impl.NodeRegisterServerImpl$1.handleMessage(NodeRegisterServerImpl.java:111)
+	at com.huawei.cie.support.mq.api.message.MQMsgTask.run(MQMsgTask.java:86)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(Unknown Source)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(Unknown Source)
+	at java.lang.Thread.run(Unknown Source)
+Caused by: org.apache.commons.dbcp.SQLNestedException: Cannot create PoolableConnectionFactory (The Network Adapter could not establish the connection)
+	at org.apache.commons.dbcp.BasicDataSource.createDataSource(BasicDataSource.java:1246)
+	at org.apache.commons.dbcp.BasicDataSource.getConnection(BasicDataSource.java:884)
+	at org.springframework.orm.hibernate3.LocalDataSourceConnectionProvider.getConnection(LocalDataSourceConnectionProvider.java:81)
+	at org.hibernate.jdbc.ConnectionManager.openConnection(ConnectionManager.java:446)
+	at org.hibernate.jdbc.ConnectionManager.getConnection(ConnectionManager.java:167)
+	at org.hibernate.jdbc.AbstractBatcher.prepareQueryStatement(AbstractBatcher.java:161)
+	at org.hibernate.loader.Loader.prepareQueryStatement(Loader.java:1700)
+	at org.hibernate.loader.Loader.doQuery(Loader.java:801)
+	at org.hibernate.loader.Loader.doQueryAndInitializeNonLazyCollections(Loader.java:274)
+	at org.hibernate.loader.Loader.doList(Loader.java:2542)
+	at org.hibernate.loader.Loader.listUsingQueryCache(Loader.java:2319)
+	at org.hibernate.loader.Loader.list(Loader.java:2268)
+	at org.hibernate.loader.criteria.CriteriaLoader.list(CriteriaLoader.java:119)
+	at org.hibernate.impl.SessionImpl.list(SessionImpl.java:1716)
+	at org.hibernate.impl.CriteriaImpl.list(CriteriaImpl.java:347)
+	at org.hibernate.impl.CriteriaImpl.uniqueResult(CriteriaImpl.java:369)
+	at com.huawei.cie.orm.hibernate.support.BaseDaoHibernateImpl$1.doInHibernate(BaseDaoHibernateImpl.java:141)
+	at com.huawei.cie.orm.hibernate.support.BaseDaoHibernateImpl$1.doInHibernate(BaseDaoHibernateImpl.java:123)
+	at org.springframework.orm.hibernate3.HibernateTemplate.doExecute(HibernateTemplate.java:406)
+	... 18 more
+Caused by: java.sql.SQLException: The Network Adapter could not establish the connection
+	at oracle.jdbc.driver.SQLStateMapping.newSQLException(SQLStateMapping.java:70)
+	at oracle.jdbc.driver.DatabaseError.newSQLException(DatabaseError.java:131)
+	at oracle.jdbc.driver.DatabaseError.throwSqlException(DatabaseError.java:197)
+	at oracle.jdbc.driver.DatabaseError.throwSqlException(DatabaseError.java:525)
+	at oracle.jdbc.driver.T4CConnection.logon(T4CConnection.java:413)
+	at oracle.jdbc.driver.PhysicalConnection.<init>(PhysicalConnection.java:508)
+	at oracle.jdbc.driver.T4CConnection.<init>(T4CConnection.java:203)
+	at oracle.jdbc.driver.T4CDriverExtension.getConnection(T4CDriverExtension.java:33)
+	at oracle.jdbc.driver.OracleDriver.connect(OracleDriver.java:510)
+	at org.apache.commons.dbcp.DriverConnectionFactory.createConnection(DriverConnectionFactory.java:38)
+	at org.apache.commons.dbcp.PoolableConnectionFactory.makeObject(PoolableConnectionFactory.java:294)
+	at org.apache.commons.dbcp.BasicDataSource.validateConnectionFactory(BasicDataSource.java:1268)
+	at org.apache.commons.dbcp.BasicDataSource.createDataSource(BasicDataSource.java:1242)
+	... 36 more
+Caused by: oracle.net.ns.NetException: The Network Adapter could not establish the connection
+	at oracle.net.nt.ConnStrategy.execute(ConnStrategy.java:328)
+	at oracle.net.resolver.AddrResolution.resolveAndExecute(AddrResolution.java:421)
+	at oracle.net.ns.NSProtocol.establishConnection(NSProtocol.java:630)
+	at oracle.net.ns.NSProtocol.connect(NSProtocol.java:206)
+	at oracle.jdbc.driver.T4CConnection.connect(T4CConnection.java:966)
+	at oracle.jdbc.driver.T4CConnection.logon(T4CConnection.java:292)
+	... 44 more
+Caused by: java.net.ConnectException: Connection refused
+	at java.net.PlainSocketImpl.socketConnect(Native Method)
+	at java.net.AbstractPlainSocketImpl.doConnect(Unknown Source)
+	at java.net.AbstractPlainSocketImpl.connectToAddress(Unknown Source)
+	at java.net.AbstractPlainSocketImpl.connect(Unknown Source)
+	at java.net.SocksSocketImpl.connect(Unknown Source)
+	at java.net.Socket.connect(Unknown Source)
+	at java.net.Socket.connect(Unknown Source)
+	at java.net.Socket.<init>(Unknown Source)
+	at java.net.Socket.<init>(Unknown Source)
+	at oracle.net.nt.TcpNTAdapter.connect(TcpNTAdapter.java:127)
+	at oracle.net.nt.ConnOption.connect(ConnOption.java:126)
+	at oracle.net.nt.ConnStrategy.execute(ConnStrategy.java:306)
+	... 49 more
+
